@@ -140,20 +140,39 @@ class Human_Awareness_System:
                         warna_fitur = (255, 0, 255)  # Magenta
                         cv2.circle(frame, tuple(map(int, kp[5])), 6, warna_fitur, -1)
                         cv2.circle(frame, tuple(map(int, kp[6])), 6, warna_fitur, -1)
-                    else:
                         # Otomatis masuk sini kalau bahu terpotong layar atau dianggap "gila" oleh Sanity Check
                         if hips_visible:
-                            target_width = np.sqrt((kp[12][0] - kp[11][0]) ** 2 + (kp[12][1] - kp[11][1]) ** 2)
-                            metode_deteksi = "Pinggul (Fallback)"
-                            warna_fitur = (255, 255, 0)  # Cyan
-                            cv2.circle(frame, tuple(map(int, kp[11])), 6, warna_fitur, -1)
-                            cv2.circle(frame, tuple(map(int, kp[12])), 6, warna_fitur, -1)
-                        else:
-                            target_width = 999  # Nilai ekstrem
-                            metode_deteksi = "Blind (Terlalu Dekat)"
-                            warna_fitur = (128, 128, 128)  # Abu-abu
-
-                    # Finite State Machine (FSM) Penentu Batas Aman Navigasi
+                            # Cari titik tengah bahu dan titik tengah pinggul
+                            y_bahu_avg = (kp[5][1] + kp[6][1]) / 2
+                            y_pinggul_avg = (kp[11][1] + kp[12][1]) / 2
+                            tinggi_torso = y_pinggul_avg - y_bahu_avg
+                            
+                            # Cek Rasio: Jika lebar bahu < 40% dari tinggi torso, pasti dia nyamping!
+                            if target_width < (tinggi_torso * 0.4):
+                                # Kalibrasi ulang target_width pakai tinggi torso (dikalikan faktor skala 0.6)
+                                # Agar setara dengan piksel bahu pada jarak yang sama
+                                target_width = tinggi_torso * 0.6 
+                                metode_deteksi = "Torso (Menyamping)"
+                                warna_fitur = (0, 165, 255) # Oranye/Amber
+                                
+                                # Gambar garis lurus "tulang punggung" biar visualisasinya canggih
+                                x_bahu_avg = int((kp[5][0] + kp[6][0]) / 2)
+                                x_pinggul_avg = int((kp[11][0] + kp[12][0]) / 2)
+                                cv2.line(frame, (x_bahu_avg, int(y_bahu_avg)), 
+                                                (x_pinggul_avg, int(y_pinggul_avg)), warna_fitur, 4)
+    
+                    elif hips_visible:
+                        # Fallback murni Pinggul (Jika bahu terpotong layar/hilang)
+                        target_width = np.sqrt((kp[12][0] - kp[11][0]) ** 2 + (kp[12][1] - kp[11][1]) ** 2)
+                        metode_deteksi = "Pinggul (Fallback)"
+                        warna_fitur = (255, 255, 0)  # Cyan
+                        cv2.circle(frame, tuple(map(int, kp[11])), 6, warna_fitur, -1)
+                        cv2.circle(frame, tuple(map(int, kp[12])), 6, warna_fitur, -1)
+                    else:
+                        target_width = 999  # Nilai ekstrem
+                        metode_deteksi = "Blind (Terlalu Dekat)"
+                        warna_fitur = (128, 128, 128)  # Abu-abu
+                        # Finite State Machine (FSM) Penentu Batas Aman Navigasi
                     if target_width > 150:
                         state_jarak = "Safe Stop (Bahaya)"
                         warna_box = (0, 0, 255)  # Merah
